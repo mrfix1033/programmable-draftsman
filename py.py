@@ -37,11 +37,11 @@ class MyGame:
 
     def extraInit(self):
         self.drawObjects = []
-        # uncomment this code and see LoopedInt
-        # self.x = LoopedInt(0, self.WIDTH - 1)
-        # self.y = LoopedInt(0, self.HEIGHT - 1)
+        # see LoopedInt and run program
+        self.x = LoopedInt(0, self.WIDTH - 1)
+        self.y = LoopedInt(0, self.HEIGHT - 1)
         self.radius = 35 * self.SCALE
-        # after comment previous code, uncomment this code and see BounceInt
+        # after comment previous code, uncomment this code, see BounceInt, run program
         # self.x = BounceInt(0 + self.radius, self.WIDTH - 1 - self.radius)
         # self.y = BounceInt(0 + self.radius, self.HEIGHT - 1 - self.radius)
         self.counter_colors = BounceInt(0, 256 * 3 - 1)
