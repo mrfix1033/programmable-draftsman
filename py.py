@@ -4,8 +4,8 @@ from copy import deepcopy
 
 class MyGame:
     def __init__(self, WIDTH=852, HEIGHT=480, FPS=30, SCALE=1.0):
-        self.WIDTH = WIDTH * SCALE
-        self.HEIGHT = HEIGHT * SCALE
+        self.WIDTH = int(WIDTH * SCALE)
+        self.HEIGHT = int(HEIGHT * SCALE)
         self.FPS = FPS
         self.CENTER_X = WIDTH // 2
         self.CENTER_Y = HEIGHT // 2
