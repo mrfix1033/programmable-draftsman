@@ -230,7 +230,6 @@ class ColorGradientHandler:
                          (self.start_colors[self.color_next][2] - self.start_colors[self.color_now][2]) * \
                          (self.transition_time_now / self.transition_time)
 
-        print(self.r, self.g, self.b, self.color_now, self.color_next, self.startIsPreEnd, self.startIsEnd)
         self.transition_time_now += 1
         self.checkGlobalNextColor()
         return self.oldR, self.oldB, self.oldG
