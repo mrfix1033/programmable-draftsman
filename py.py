@@ -1,8 +1,9 @@
 import pygame
+from copy import deepcopy
 
 
 class MyGame:
-    def __init__(self, WIDTH=852, HEIGHT=480, FPS=30, SCALE=1.5):
+    def __init__(self, WIDTH=852, HEIGHT=480, FPS=30, SCALE=1.0):
         self.WIDTH = WIDTH * SCALE
         self.HEIGHT = HEIGHT * SCALE
         self.FPS = FPS
@@ -36,6 +37,7 @@ class MyGame:
         self.extraDoTick()
 
     def extraInit(self):
+        self.colorHandler = ColorGradientHandler()
         self.drawObjects = []
         # see LoopedInt and run program
         self.x = LoopedInt(0, self.WIDTH - 1)
@@ -52,10 +54,7 @@ class MyGame:
         self.x += 3
         self.y += 2
         self.counter_colors += 1
-        r = max(0, int(self.counter_colors) - 512)
-        g = min(255, max(0, int(self.counter_colors) - 256))
-        b = min(int(self.counter_colors), 255)
-        self.drawObjects.append(DrawObject(pygame.draw.circle, (r, g, b),
+        self.drawObjects.append(DrawObject(pygame.draw.circle, self.colorHandler.nextColor(),
                                            self.display.get_surface(), center=(int(self.x), int(self.y)),
                                            radius=self.radius, objectLiveTicks=150))
 
@@ -105,14 +104,14 @@ class LoopedInt:
     def __init__(self, start, end, num=0):
         self.shift = start
         self.end = end - self.shift
-        self.num = (num - self.shift) % self.end + self.shift
+        self.num = int((num - self.shift) % self.end + self.shift)
 
     def __int__(self):
         return self.num
 
     def __add__(self, other):
         self.end += self.shift
-        self.num = (self.num + other.__int__() - self.shift) % self.end + self.shift
+        self.num = int((self.num + other.__int__() - self.shift) % self.end + self.shift)
         return self
 
     def __iadd__(self, other):
@@ -166,6 +165,86 @@ class BounceInt:
 
     def __eq__(self, other):
         return self.num == other.num
+
+
+class ColorGradientHandler:
+    def __init__(self, start_colors=[[0, 0, 0], [255, 0, 0]],
+                 looped_colors=[[255, 255, 0], [0, 255, 255], [255, 0, 255]],
+                 transition_time=255):
+        self.start_colors = deepcopy(start_colors)
+        self.looped_colors = deepcopy(looped_colors)
+        self.transition_time = transition_time
+        self.transition_time_now = 0
+        if isinstance(self.start_colors[0], int):
+            self.start_colors = [self.start_colors]
+        if isinstance(self.looped_colors[0], int):
+            self.looped_colors = [self.looped_colors]
+        self.r = self.g = self.b = 0
+        self.color_now = 0
+        self.color_next = 1
+        self.startIsEnd = False
+        self.startIsPreEnd = False
+
+    def nextColor(self):
+        return self.handleNextColor()
+
+    def handleNextColor(self):
+        self.oldR, self.oldB, self.oldG = self.r, self.g, self.b
+        if self.startIsEnd:
+            self.r = self.looped_colors[self.color_now][0] + \
+                     (self.looped_colors[self.color_next][0] - self.looped_colors[self.color_now][0]) * \
+                     (self.transition_time_now / self.transition_time)
+            self.g = self.looped_colors[self.color_now][1] + \
+                     (self.looped_colors[self.color_next][1] - self.looped_colors[self.color_now][1]) * \
+                     (self.transition_time_now / self.transition_time)
+            self.b = self.looped_colors[self.color_now][2] + \
+                     (self.looped_colors[self.color_next][2] - self.looped_colors[self.color_now][2]) * \
+                     (self.transition_time_now / self.transition_time)
+        else:
+            if self.color_next == len(self.start_colors):
+                self.startIsPreEnd = True
+                self.color_next = 0
+                return self.handleNextColor()
+            elif self.color_now == len(self.start_colors):
+                self.startIsEnd = True
+                self.color_now = 0
+                return self.handleNextColor()
+            elif self.startIsPreEnd:
+                self.r = self.start_colors[self.color_now][0] + \
+                         (self.looped_colors[self.color_next][0] - self.start_colors[self.color_now][0]) * \
+                         (self.transition_time_now / self.transition_time)
+                self.g = self.start_colors[self.color_now][1] + \
+                         (self.looped_colors[self.color_next][1] - self.start_colors[self.color_now][1]) * \
+                         (self.transition_time_now / self.transition_time)
+                self.b = self.start_colors[self.color_now][2] + \
+                         (self.looped_colors[self.color_next][2] - self.start_colors[self.color_now][2]) * \
+                         (self.transition_time_now / self.transition_time)
+            else:
+                self.r = self.start_colors[self.color_now][0] + \
+                         (self.start_colors[self.color_next][0] - self.start_colors[self.color_now][0]) * \
+                         (self.transition_time_now / self.transition_time)
+                self.g = self.start_colors[self.color_now][1] + \
+                         (self.start_colors[self.color_next][1] - self.start_colors[self.color_now][1]) * \
+                         (self.transition_time_now / self.transition_time)
+                self.b = self.start_colors[self.color_now][2] + \
+                         (self.start_colors[self.color_next][2] - self.start_colors[self.color_now][2]) * \
+                         (self.transition_time_now / self.transition_time)
+
+        print(self.r, self.g, self.b, self.color_now, self.color_next, self.startIsPreEnd, self.startIsEnd)
+        self.transition_time_now += 1
+        self.checkGlobalNextColor()
+        return self.oldR, self.oldB, self.oldG
+
+    def checkGlobalNextColor(self):
+        if self.transition_time == self.transition_time_now:
+            self.color_now = (self.color_now + 1) % \
+                             (len(self.looped_colors) if self.startIsEnd else len(self.start_colors) + 1)
+            self.color_next = (self.color_next + 1) % \
+                              (len(self.looped_colors) if self.startIsPreEnd else len(self.start_colors) + 1)
+            self.transition_time_now = 0
+            # return: color was changed?
+            return True
+        return False
 
 
 game = MyGame()
