@@ -42,7 +42,7 @@ class MyGame:
         # see LoopedInt and run program
         self.x = LoopedInt(0, self.WIDTH - 1)
         self.y = LoopedInt(0, self.HEIGHT - 1)
-        self.radius = 35 * self.SCALE
+        self.radius = int(35 * self.SCALE)
         # after comment previous code, uncomment this code, see BounceInt, run program
         # self.x = BounceInt(0 + self.radius, self.WIDTH - 1 - self.radius)
         # self.y = BounceInt(0 + self.radius, self.HEIGHT - 1 - self.radius)
