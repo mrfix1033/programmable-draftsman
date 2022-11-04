@@ -1,3 +1,5 @@
+from random import randint
+
 import pygame
 from copy import deepcopy
 
@@ -37,34 +39,21 @@ class MyGame:
         self.extraDoTick()
 
     def extraInit(self):
-        self.colorHandler = ColorGradientHandler()
-        self.drawObjects = []
-        # see LoopedInt and run program
-        self.x = LoopedInt(0, self.WIDTH - 1)
-        self.y = LoopedInt(0, self.HEIGHT - 1)
-        self.radius = int(35 * self.SCALE)
-        # after comment previous code, uncomment this code, see BounceInt, run program
-        # self.x = BounceInt(0 + self.radius, self.WIDTH - 1 - self.radius)
-        # self.y = BounceInt(0 + self.radius, self.HEIGHT - 1 - self.radius)
-        self.counter_colors = BounceInt(0, 256 * 3 - 1)
-        # I want to add a gradient
+        self.globalDrawObjects = []
+        count = 5
+        for i in range(count):
+            self.globalDrawObjects.append(GlobalDrawObject(self.display, self.WIDTH, self.HEIGHT,
+                                                           ColorGradientHandler(transition_time=randint(50, 80)),
+                                                           deltaX=randint(2, 6), deltaY=randint(2, 6)))
 
     def extraDoTick(self):
-        self.handleDrawObjects()
-        self.x += 3
-        self.y += 2
-        self.counter_colors += 1
-        self.drawObjects.append(DrawObject(pygame.draw.circle, self.colorHandler.nextColor(),
-                                           self.display.get_surface(), center=(int(self.x), int(self.y)),
-                                           radius=self.radius, objectLiveTicks=150))
+        self.handleGlobalObjects()
 
-    def handleDrawObjects(self):
-        need_to_delete_indexes = []
-        for i in range(len(self.drawObjects)):
-            if self.drawObjects[i].doTick():
-                need_to_delete_indexes.append(i)
-        for i in need_to_delete_indexes:
-            del self.drawObjects[i]
+    def handleGlobalObjects(self):
+        for i in self.globalDrawObjects:
+            i.doTick()
+
+
 
 
 class DrawObject:
@@ -140,7 +129,7 @@ class BounceInt:
         self.multiplier = 1
 
     def __int__(self):
-        return self.num
+        return int(self.num)
 
     def __add__(self, other):
         self.num += other * self.multiplier
@@ -170,10 +159,10 @@ class BounceInt:
 class ColorGradientHandler:
     def __init__(self, start_colors=[[0, 0, 0], [255, 0, 0]],
                  looped_colors=[[255, 255, 0], [0, 255, 255], [255, 0, 255]],
-                 transition_time=255):
+                 transition_time=256):
         self.start_colors = deepcopy(start_colors)
         self.looped_colors = deepcopy(looped_colors)
-        self.transition_time = transition_time
+        self.transition_time = transition_time - 1
         self.transition_time_now = 0
         if isinstance(self.start_colors[0], int):
             self.start_colors = [self.start_colors]
@@ -246,4 +235,35 @@ class ColorGradientHandler:
         return False
 
 
-game = MyGame()
+class GlobalDrawObject:
+    def __init__(self, display, WIDTH, HEIGHT, colorHandler, SCALE=1.0, deltaX=3, deltaY=2):
+        self.display = display
+        self.WIDTH = int(WIDTH)
+        self.HEIGHT = int(HEIGHT)
+        self.SCALE = SCALE
+        self.colorHandler = colorHandler
+        self.deltaX = deltaX
+        self.deltaY = deltaY
+        self.drawObjects = []
+        self.radius = int(50 * self.SCALE)
+        self.x = BounceInt(0 + self.radius, self.WIDTH - 1 - self.radius)
+        self.y = BounceInt(0 + self.radius, self.HEIGHT - 1 - self.radius)
+
+    def doTick(self):
+        self.handleDrawObjects()
+        self.x += self.deltaX
+        self.y += self.deltaY
+        self.drawObjects.append(DrawObject(pygame.draw.circle, self.colorHandler.nextColor(),
+                                           self.display.get_surface(), center=(int(self.x), int(self.y)),
+                                           radius=self.radius, objectLiveTicks=120))
+
+    def handleDrawObjects(self):
+        need_to_delete_indexes = []
+        for i in range(len(self.drawObjects)):
+            if self.drawObjects[i].doTick():
+                need_to_delete_indexes.append(i)
+        for i in need_to_delete_indexes:
+            del self.drawObjects[i]
+
+
+game = MyGame(WIDTH=1366, HEIGHT=768)
