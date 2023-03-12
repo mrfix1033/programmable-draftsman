@@ -246,8 +246,8 @@ class GlobalDrawObject:
         self.deltaY = deltaY
         self.drawObjects = []
         self.radius = int(50 * self.SCALE)
-        self.x = BounceInt(0 + self.radius, self.WIDTH - 1 - self.radius)
-        self.y = BounceInt(0 + self.radius, self.HEIGHT - 1 - self.radius)
+        self.x = BounceInt(self.radius, self.WIDTH - 1 - self.radius, randint(self.radius, self.WIDTH - 1 - self.radius))
+        self.y = BounceInt(self.radius, self.HEIGHT - 1 - self.radius, randint(self.radius, self.HEIGHT - 1 - self.radius))
 
     def doTick(self):
         self.handleDrawObjects()
