@@ -1,3 +1,4 @@
+import time
 from random import randint
 
 import pygame
@@ -5,7 +6,7 @@ from copy import deepcopy
 
 
 class MyGame:
-    def __init__(self, WIDTH=852, HEIGHT=480, FPS=60, SCALE=1.0):
+    def __init__(self, WIDTH=852, HEIGHT=480, FPS=30, SCALE=1.0):
         self.WIDTH = int(WIDTH * SCALE)
         self.HEIGHT = int(HEIGHT * SCALE)
         self.FPS = FPS
@@ -33,27 +34,74 @@ class MyGame:
         pygame.quit()
 
     def doTick(self):
+        now = time.time()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                pos = event.pos
+                for i in self.globalDrawObjects:
+                    if (int(i.x) - pos[0]) ** 2 + (int(i.y) - pos[1]) ** 2 < i.radius ** 2:
+                        self.grabbedObjects[i] = now
+                        i.stopped = True  # not i.stopped
+            elif event.type == pygame.MOUSEBUTTONUP:
+                for i in self.grabbedObjects:
+                    if now - self.grabbedObjects[i] < 0.3:
+                        i.stopped = False
+                self.grabbedObjects.clear()
+            elif event.type == pygame.MOUSEMOTION:
+                for i in self.grabbedObjects:
+                    self.grabbedObjects[i] = now
+                    i.x.num += event.rel[0]
+                    i.y.num += event.rel[1]
         self.extraDoTick()
 
     def extraInit(self):
         self.globalDrawObjects = []
-        count = 5
+        self.grabbedObjects = {}
+        count = 15
+        min_delta = 3
+        max_delta = 6
+        max_count = (max_delta - min_delta + 1) ** 2
+        if count > max_count:
+            print('\n--------------------\n'
+                  'Невозможно сделать разные дельты, т.к. кол-во глобальных объектов больше '
+                  'кол-ва возможных различных комбинаций дельт. Некоторые пары дельт одинаковы!'
+                  '\n--------------------')
+        deltas = set()
+        while len(deltas) != max_count:
+            deltas.add((randint(min_delta, max_delta), randint(min_delta, max_delta)))
+        deltas = list(deltas) + [(randint(min_delta, max_delta), randint(min_delta, max_delta)) for _ in
+                                 range(count - max_count)]
         for i in range(count):
             self.globalDrawObjects.append(GlobalDrawObject(self.display, self.WIDTH, self.HEIGHT,
-                                                           ColorGradientHandler(transition_time=randint(50, 80)),
-                                                           deltaX=randint(2, 6), deltaY=randint(2, 6)))
+                                                           ColorGradientHandler(
+                                                               start_colors=[[0] * 3,
+                                                                             [randint(0, 255) for i in range(3)]],
+                                                               # looped_colors=[[randint(0, 255) for i in range(3)] for i
+                                                               #                in range(5)],
+                                                               transition_time=randint(40, 120)),
+                                                           deltaX=deltas[i][0], deltaY=deltas[i][1]))
 
     def extraDoTick(self):
         self.handleGlobalObjects()
+        self.renderText()
 
     def handleGlobalObjects(self):
         for i in self.globalDrawObjects:
             i.doTick()
 
-
+    def renderText(self):
+        aa = True
+        color = 'gray'
+        size = 30
+        line_spacing = size // 3
+        font = pygame.font.SysFont('Calibri', size)
+        x = 10
+        y_start = x
+        self.screen.blit(font.render("Удержите, переместите (ручкой! а не пальцем), отпустите, чтобы переместить", aa, color), (x, y_start))
+        self.screen.blit(font.render("Удержите и отпустите, чтобы остановить", aa, color), (x, y_start + size + line_spacing))
+        self.screen.blit(font.render("Нажмите и отпустите, чтобы возобновить движение", aa, color), (x, y_start + (size + line_spacing) * 2))
 
 
 class DrawObject:
@@ -73,10 +121,10 @@ class DrawObject:
         if self.alwaysLive:
             self.drawFunc(*self.args, color=self.color, **self.kwargs)
             return False
+        self.remainedTicks -= 1
         self.drawFunc(*self.args, color=self.multiplicateColor(self.color, self.remainedTicks / self.liveTicks),
                       **self.kwargs)
-        self.remainedTicks -= 1
-        return self.remainedTicks == -1
+        return self.remainedTicks == 0
 
     def multiplicateColor(self, color, multiplier):
         # function that multiplies values of color
@@ -99,7 +147,6 @@ class LoopedInt:
         return self.num
 
     def __add__(self, other):
-        self.end += self.shift
         self.num = int((self.num + other.__int__() - self.shift) % self.end + self.shift)
         return self
 
@@ -120,19 +167,15 @@ class LoopedInt:
 # always +3
 # 0, 3, 6, 9, 8, 5, 2, 1, 4, 7, 10, 7, ...
 class BounceInt:
-    def __init__(self, start, end, num=0):
+    def __init__(self, start, end, num=0, multiplier=1):
         self.start = start
         self.end = end
         self.num = num
         if not self.start <= self.num <= self.end:
             self.num = self.start
-        self.multiplier = 1
+        self.multiplier = multiplier
 
     def __int__(self):
-        return int(self.num)
-
-    def __add__(self, other):
-        self.num += other * self.multiplier
         # need to optimize
         while not self.start <= self.num <= self.end:
             if self.num < self.start:
@@ -141,6 +184,10 @@ class BounceInt:
             if self.num > self.end:
                 self.num -= self.num - self.end
                 self.multiplier = -1
+        return int(self.num)
+
+    def __add__(self, other):
+        self.num += other * self.multiplier
         return self
 
     def __iadd__(self, other):
@@ -236,7 +283,7 @@ class ColorGradientHandler:
 
 
 class GlobalDrawObject:
-    def __init__(self, display, WIDTH, HEIGHT, colorHandler, SCALE=1.0, deltaX=3, deltaY=2):
+    def __init__(self, display, WIDTH, HEIGHT, colorHandler, SCALE=1.0, deltaX=3, deltaY=2, stopped=False):
         self.display = display
         self.WIDTH = int(WIDTH)
         self.HEIGHT = int(HEIGHT)
@@ -245,17 +292,25 @@ class GlobalDrawObject:
         self.deltaX = deltaX
         self.deltaY = deltaY
         self.drawObjects = []
-        self.radius = int(50 * self.SCALE)
-        self.x = BounceInt(self.radius, self.WIDTH - 1 - self.radius, randint(self.radius, self.WIDTH - 1 - self.radius))
-        self.y = BounceInt(self.radius, self.HEIGHT - 1 - self.radius, randint(self.radius, self.HEIGHT - 1 - self.radius))
+        self.radius = int(30 * self.SCALE)
+        self.x = BounceInt(0 + self.radius, self.WIDTH - 1 - self.radius,
+                           num=randint(self.radius - 1, self.WIDTH - 1), multiplier=[-1, 1][randint(0, 1)])
+        self.y = BounceInt(0 + self.radius, self.HEIGHT - 1 - self.radius,
+                           num=randint(self.radius - 1, self.HEIGHT - 1), multiplier=[-1, 1][randint(0, 1)])
+        self.stopped = stopped
 
     def doTick(self):
+        if not self.stopped:
+            self.x += self.deltaX
+            self.y += self.deltaY
         self.handleDrawObjects()
-        self.x += self.deltaX
-        self.y += self.deltaY
-        self.drawObjects.append(DrawObject(pygame.draw.circle, self.colorHandler.nextColor(),
-                                           self.display.get_surface(), center=(int(self.x), int(self.y)),
-                                           radius=self.radius, objectLiveTicks=120))
+        drawObject = DrawObject(pygame.draw.circle, self.colorHandler.nextColor(),
+                                self.display.get_surface(),
+                                center=(int(self.x), int(self.y)),
+                                radius=self.radius,
+                                objectLiveTicks=30)
+        self.drawObjects.append(drawObject)
+        return drawObject
 
     def handleDrawObjects(self):
         need_to_delete_indexes = []
@@ -266,4 +321,4 @@ class GlobalDrawObject:
             del self.drawObjects[i]
 
 
-game = MyGame(WIDTH=1366, HEIGHT=768)
+game = MyGame(WIDTH=1920, HEIGHT=1080, FPS=60)
